@@ -99,7 +99,7 @@ module Prawn
   #   end
   #
   class Table
-    module Interface 
+    module Interface
       # @group Experimental API
 
       # Set up and draw a table on this document. A block can be given, which will
@@ -135,6 +135,8 @@ module Prawn
     #   above for details on available options.
     #
     def initialize(data, document, options={}, &block)
+      @metrics = []
+
       @pdf = document
       @cells = make_cells(data)
       @header = false
@@ -184,6 +186,17 @@ module Prawn
     #
     def width
       @width ||= [natural_width, @pdf.bounds.width].min
+    end
+
+    # Returns an array of table metrics (one per page).
+    # Each contains :top, :left, :width, :height
+    def metrics
+      @metrics
+    end
+
+    # Returns the number of the page on which the table begins.
+    def initial_page
+      @initial_page
     end
 
     # Sets column widths for the table. The argument can be one of the following
@@ -291,7 +304,7 @@ module Prawn
         cells_this_page = []
 
         @cells.each do |cell|
-          if start_new_page?(cell, offset, ref_bounds) 
+          if start_new_page?(cell, offset, ref_bounds)
             # draw cells on the current page and then start a new one
             # this will also add a header to the new page if a header is set
             # reset array of cells for the new page
@@ -381,7 +394,7 @@ module Prawn
     end
 
     protected
-    
+
     # sets the background color (if necessary) for the given cell
     def set_background_color(cell, started_new_page_at_row)
       if defined?(@row_colors) && @row_colors && (!@header || cell.row > 0)
@@ -422,16 +435,16 @@ module Prawn
     # ink cells and then draw them
     def ink_and_draw_cells(cells_this_page, draw_cells = true)
       ink_cells(cells_this_page)
-      Cell.draw_cells(cells_this_page) if draw_cells
+      @metrics.push(Cell.draw_cells(cells_this_page)) if draw_cells
     end
 
     # ink and draw cells, then start a new page
     def ink_and_draw_cells_and_start_new_page(cells_this_page, cell)
       # don't draw only a header
       draw_cells = (@header_row.nil? || cells_this_page.size > @header_row.size)
-      
+
       ink_and_draw_cells(cells_this_page, draw_cells)
-      
+
       # start a new page or column
       @pdf.bounds.move_past_bottom
 
@@ -468,6 +481,8 @@ module Prawn
     # page will not buy us any space if we are at the top.
     # @return [Integer] 0 (already at the top OR created a new page) or -1 (enough space)
     def initial_row_on_initial_page
+      @initial_page = @pdf.page_number
+
       # we're at the top of our bounds
       return 0 if fits_on_page?(@pdf.bounds.height)
 
@@ -480,6 +495,7 @@ module Prawn
       # If there isn't enough room left on the page to fit the first data row
       # (including the header), start the table on the next page.
       @pdf.bounds.move_past_bottom
+      @initial_page = @pdf.page_number
 
       # we are at the top of a new page
       0
@@ -576,7 +592,7 @@ module Prawn
         number_of_header_rows.times do |h|
           additional_header_height = add_one_header_row(cells_this_page, x_offset, y_coord-header_height, row_number-1, h)
           header_height += additional_header_height
-        end        
+        end
       end
       header_height
     end
@@ -593,7 +609,7 @@ module Prawn
       rows_to_operate_on = @header_row.rows(row_of_header) if row_of_header
       rows_to_operate_on.each do |cell|
         cell.row = row
-        cell.dummy_cells.each {|c| 
+        cell.dummy_cells.each {|c|
           if cell.rowspan > 1
             # be sure to account for cells that span multiple rows
             # in this case you need multiple row numbers

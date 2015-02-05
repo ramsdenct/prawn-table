@@ -409,15 +409,45 @@ module Prawn
       # and content.
       #
       def self.draw_cells(cells)
+        metrics = {
+          top: nil,
+          left: nil,
+          width: nil,
+          height: nil
+        }
+
+        last_pt_x = -1
+        last_pt_y = -1
         cells.each do |cell, pt|
+          metrics[:left] = pt[0] if metrics[:left] == nil
+          metrics[:top] = pt[1] if metrics[:top] == nil
+
           cell.set_width_constraints
           cell.draw_background(pt)
+
+          if metrics[:width] == nil
+            metrics[:width] = cell.width
+            last_pt_x = pt[0]
+          elsif pt[0] > last_pt_x
+            metrics[:width] = metrics[:width] + cell.width
+            last_pt_x = pt[0]
+          end
+
+          if metrics[:height] == nil
+            metrics[:height] = cell.height
+            last_pt_y = pt[1]
+          elsif pt[1] < last_pt_y
+            metrics[:height] = metrics[:height] + cell.height
+            last_pt_y = pt[1]
+          end
         end
 
         cells.each do |cell, pt|
           cell.draw_borders(pt)
           cell.draw_bounded_content(pt)
         end
+
+        metrics
       end
 
       # Draws the cell's content at the point provided.
